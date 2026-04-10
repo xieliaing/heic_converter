@@ -21,7 +21,7 @@ Built with Python + Tkinter. Pick one or many HEIC files from anywhere on your c
 
 ## Download (Windows)
 
-Grab the latest prebuilt executable from the [**Releases page**]([../../releases/latest](https://github.com/xieliaing/heic_converter/releases/tag/v0.1.1)).
+Grab the latest prebuilt executable from the [**Releases page**](../../releases/latest).
 
 Download `HEICConverter.exe`, double-click to run. No installation required.
 
