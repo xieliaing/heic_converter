@@ -4,7 +4,7 @@ A small, no-frills Windows utility to batch-convert HEIC/HEIF images to **JPEG**
 
 Built with Python + Tkinter. Pick one or many HEIC files from anywhere on your computer, choose an output folder, and click **Convert**. Files that aren't actually HEIC (for example, a JPEG someone renamed to `.heic`) are automatically detected and skipped with a warning in the log.
 
-<img width="909" height="796" alt="image" src="https://github.com/user-attachments/assets/ac195ff9-1ef4-4470-82c4-4126b1581559" />
+<img width="545" height="477" alt="image" src="https://github.com/user-attachments/assets/ac195ff9-1ef4-4470-82c4-4126b1581559" />
 
 ---
 
