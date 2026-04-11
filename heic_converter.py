@@ -27,6 +27,12 @@ except ImportError:
     HEIF_AVAILABLE = False
 
 
+APP_NAME = "HEIC Converter"
+APP_VERSION = "1.0.0"
+APP_AUTHOR = "Liang Xie / Claude Code"
+APP_URL = "https://github.com/xieliaing/heic_converter"
+
+
 # HEIC/HEIF file signatures (ftyp box brands), found at bytes 4..12 of the file.
 HEIC_BRANDS = {
     b"heic", b"heix", b"heim", b"heis",
@@ -57,7 +63,7 @@ def is_heic_file(path: str) -> bool:
 class HEICConverterApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("HEIC Converter")
+        self.root.title(f"{APP_NAME} v{APP_VERSION}")
         self.root.geometry("720x580")
         self.root.minsize(640, 520)
 
@@ -66,7 +72,38 @@ class HEICConverterApp:
         self.output_format = tk.StringVar(value="JPEG")
         self.jpeg_quality = tk.IntVar(value=92)
 
+        self._build_menu()
         self._build_ui()
+
+    def _build_menu(self):
+        menubar = tk.Menu(self.root)
+
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Exit", command=self.root.destroy)
+        menubar.add_cascade(label="File", menu=file_menu)
+
+        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label="About...", command=self.show_about)
+        menubar.add_cascade(label="Help", menu=help_menu)
+
+        self.root.config(menu=menubar)
+
+    def show_about(self):
+        about_text = (
+            f"{APP_NAME}  v{APP_VERSION}\n\n"
+            "A small utility to batch-convert HEIC/HEIF images to JPEG or PNG.\n\n"
+            "Features:\n"
+            "  \u2022 Add multiple HEIC files from any folder\n"
+            "  \u2022 Convert to JPEG (adjustable quality) or PNG\n"
+            "  \u2022 Real format validation by inspecting file headers\n"
+            "  \u2022 Non-HEIC files are automatically skipped with a warning\n"
+            "  \u2022 Automatic filename de-duplication\n\n"
+            f"Author: {APP_AUTHOR}\n"
+            f"Project: {APP_URL}\n\n"
+            "Built with Python, Tkinter, Pillow, and pillow-heif.\n"
+            "Licensed under the MIT License."
+        )
+        messagebox.showinfo(f"About {APP_NAME}", about_text)
 
     def _build_ui(self):
         pad = {"padx": 10, "pady": 6}
