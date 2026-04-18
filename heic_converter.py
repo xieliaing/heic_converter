@@ -1,8 +1,12 @@
 """
-HEIC to JPEG/PNG Converter
-==========================
+HEIC Converter
+==============
 
-A simple GUI tool to batch-convert HEIC/HEIF images to JPEG or PNG.
+A simple GUI tool to batch-convert HEIC/HEIF images to JPEG, PNG, WebP, or PDF.
+
+PDF output has two modes:
+  * One PDF per HEIC file (default) -- mirrors JPEG/PNG/WebP.
+  * Combine all HEICs into a single multi-page PDF.
 
 Requirements:
     pip install pillow pillow-heif
@@ -28,7 +32,7 @@ except ImportError:
 
 
 APP_NAME = "HEIC Converter"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.3.0"
 APP_AUTHOR = "Liang Xie / Claude Code"
 APP_URL = "https://github.com/xieliaing/heic_converter"
 
@@ -70,7 +74,8 @@ class HEICConverterApp:
         self.input_files: list[str] = []
         self.output_dir = tk.StringVar()
         self.output_format = tk.StringVar(value="JPEG")
-        self.jpeg_quality = tk.IntVar(value=92)
+        self.quality = tk.IntVar(value=92)
+        self.combine_pdf = tk.BooleanVar(value=False)
 
         self._build_menu()
         self._build_ui()
@@ -91,10 +96,12 @@ class HEICConverterApp:
     def show_about(self):
         about_text = (
             f"{APP_NAME}  v{APP_VERSION}\n\n"
-            "A small utility to batch-convert HEIC/HEIF images to JPEG or PNG.\n\n"
+            "A small utility to batch-convert HEIC/HEIF images to JPEG, PNG, WebP, or PDF.\n\n"
             "Features:\n"
             "  \u2022 Add multiple HEIC files from any folder\n"
-            "  \u2022 Convert to JPEG (adjustable quality) or PNG\n"
+            "  \u2022 Convert to JPEG, PNG, WebP, or PDF\n"
+            "  \u2022 Adjustable quality for JPEG and WebP\n"
+            "  \u2022 Combine multiple HEICs into a single multi-page PDF\n"
             "  \u2022 Real format validation by inspecting file headers\n"
             "  \u2022 Non-HEIC files are automatically skipped with a warning\n"
             "  \u2022 Automatic filename de-duplication\n\n"
@@ -137,12 +144,33 @@ class HEICConverterApp:
         ttk.Button(dir_row, text="Browse...", command=self.choose_output_dir).pack(side="left")
 
         opt_row = ttk.Frame(output_frame)
-        opt_row.pack(fill="x", padx=8, pady=(0, 8))
+        opt_row.pack(fill="x", padx=8, pady=(0, 4))
         ttk.Label(opt_row, text="Format:").pack(side="left")
-        ttk.Radiobutton(opt_row, text="JPEG", variable=self.output_format, value="JPEG").pack(side="left", padx=4)
-        ttk.Radiobutton(opt_row, text="PNG", variable=self.output_format, value="PNG").pack(side="left", padx=4)
-        ttk.Label(opt_row, text="   JPEG Quality:").pack(side="left")
-        ttk.Spinbox(opt_row, from_=1, to=100, textvariable=self.jpeg_quality, width=5).pack(side="left", padx=4)
+        ttk.Radiobutton(opt_row, text="JPEG", variable=self.output_format,
+                        value="JPEG", command=self._on_format_change).pack(side="left", padx=4)
+        ttk.Radiobutton(opt_row, text="PNG", variable=self.output_format,
+                        value="PNG", command=self._on_format_change).pack(side="left", padx=4)
+        ttk.Radiobutton(opt_row, text="WebP", variable=self.output_format,
+                        value="WEBP", command=self._on_format_change).pack(side="left", padx=4)
+        ttk.Radiobutton(opt_row, text="PDF", variable=self.output_format,
+                        value="PDF", command=self._on_format_change).pack(side="left", padx=4)
+        self.quality_label = ttk.Label(opt_row, text="   Quality:")
+        self.quality_label.pack(side="left")
+        self.quality_spin = ttk.Spinbox(opt_row, from_=1, to=100,
+                                        textvariable=self.quality, width=5)
+        self.quality_spin.pack(side="left", padx=4)
+
+        pdf_row = ttk.Frame(output_frame)
+        pdf_row.pack(fill="x", padx=8, pady=(0, 8))
+        self.combine_pdf_check = ttk.Checkbutton(
+            pdf_row,
+            text="Combine all HEICs into a single multi-page PDF",
+            variable=self.combine_pdf,
+        )
+        self.combine_pdf_check.pack(side="left")
+
+        # Apply initial enabled/disabled state for quality + combine-PDF controls
+        self._on_format_change()
 
         # --- Action ---
         action_frame = ttk.Frame(self.root)
@@ -196,6 +224,22 @@ class HEICConverterApp:
         if d:
             self.output_dir.set(d)
 
+    def _on_format_change(self):
+        """Enable/disable quality spinbox and PDF-combine checkbox based on format."""
+        fmt = self.output_format.get()
+        # Quality applies to JPEG and WebP only.
+        if fmt in ("JPEG", "WEBP"):
+            self.quality_spin.configure(state="normal")
+            self.quality_label.configure(foreground="")
+        else:
+            self.quality_spin.configure(state="disabled")
+            self.quality_label.configure(foreground="gray")
+        # Combine-PDF checkbox only applies when PDF is selected.
+        if fmt == "PDF":
+            self.combine_pdf_check.configure(state="normal")
+        else:
+            self.combine_pdf_check.configure(state="disabled")
+
     # ---------- conversion ----------
     def start_conversion(self):
         if not HEIF_AVAILABLE:
@@ -205,6 +249,30 @@ class HEICConverterApp:
         if not self.input_files:
             messagebox.showwarning("No input", "Please add at least one HEIC file.")
             return
+
+        fmt = self.output_format.get()
+        combine = (fmt == "PDF" and self.combine_pdf.get())
+
+        if combine:
+            # Combined PDF mode: ask for a single output filename instead of a folder.
+            out_file = filedialog.asksaveasfilename(
+                title="Save combined PDF as",
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+                initialfile="heic-combined.pdf",
+            )
+            if not out_file:
+                return
+            self.convert_btn.configure(state="disabled")
+            self.progress.configure(value=0, maximum=len(self.input_files))
+            threading.Thread(
+                target=self._convert_combined_pdf_worker,
+                args=(Path(out_file),),
+                daemon=True,
+            ).start()
+            return
+
+        # Standard per-file mode: need output folder.
         if not self.output_dir.get():
             messagebox.showwarning("No output folder", "Please choose an output folder.")
             return
@@ -219,8 +287,9 @@ class HEICConverterApp:
 
     def _convert_worker(self, out_dir: Path):
         fmt = self.output_format.get()
-        ext = ".jpg" if fmt == "JPEG" else ".png"
-        quality = self.jpeg_quality.get()
+        ext_map = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp", "PDF": ".pdf"}
+        ext = ext_map[fmt]
+        quality = self.quality.get()
 
         success = skipped = failed = 0
         self.log(f"--- Converting {len(self.input_files)} file(s) to {fmt} ---")
@@ -249,8 +318,18 @@ class HEICConverterApp:
                         if img.mode in ("RGBA", "P", "LA"):
                             img = img.convert("RGB")
                         img.save(out_path, "JPEG", quality=quality)
-                    else:
+                    elif fmt == "PNG":
                         img.save(out_path, "PNG")
+                    elif fmt == "WEBP":
+                        # Pillow's WebP encoder accepts RGB or RGBA.
+                        if img.mode == "P":
+                            img = img.convert("RGBA")
+                        img.save(out_path, "WEBP", quality=quality)
+                    elif fmt == "PDF":
+                        # PDF output has no alpha channel; flatten to RGB.
+                        if img.mode != "RGB":
+                            img = img.convert("RGB")
+                        img.save(out_path, "PDF", resolution=100.0)
 
                 self.log(f"OK: {name}  ->  {out_path.name}")
                 success += 1
@@ -262,6 +341,71 @@ class HEICConverterApp:
 
         self.log(f"--- Done. Success: {success}, Skipped: {skipped}, Failed: {failed} ---")
         self.convert_btn.configure(state="normal")
+
+    def _convert_combined_pdf_worker(self, out_file: Path):
+        """Decode all valid HEICs and write them as pages of a single PDF."""
+        success = skipped = failed = 0
+        pages: list[Image.Image] = []
+        self.log(f"--- Combining {len(self.input_files)} file(s) into one PDF ---")
+
+        try:
+            for path in list(self.input_files):
+                name = os.path.basename(path)
+                try:
+                    if not os.path.isfile(path):
+                        self.log(f"WARNING: File not found, skipping: {name}")
+                        skipped += 1
+                        continue
+                    if not is_heic_file(path):
+                        self.log(f"WARNING: Not a valid HEIC/HEIF file, skipping: {name}")
+                        skipped += 1
+                        continue
+
+                    # Open, decode pixels, and immediately copy to a standalone RGB Image
+                    # so we can close the source file handle. Keeping many pillow-heif
+                    # backed images open simultaneously is wasteful.
+                    with Image.open(path) as img:
+                        page = img.convert("RGB").copy()
+                    pages.append(page)
+                    success += 1
+                    self.log(f"OK: loaded {name}")
+                except Exception as e:
+                    self.log(f"ERROR loading {name}: {e}")
+                    failed += 1
+                finally:
+                    self.progress.step(1)
+
+            if not pages:
+                self.log("--- No valid HEIC files to combine. PDF not written. ---")
+                messagebox.showwarning(
+                    "Nothing to write",
+                    "No valid HEIC files were found, so no PDF was created."
+                )
+                return
+
+            # Avoid overwriting an existing file silently if the user picked an existing name;
+            # tk's asksaveasfilename already confirms overwrites, so we just honor their choice.
+            first, rest = pages[0], pages[1:]
+            first.save(
+                out_file,
+                "PDF",
+                save_all=True,
+                append_images=rest,
+                resolution=100.0,
+            )
+            self.log(f"--- Done. Combined {success} page(s) into {out_file.name}. "
+                     f"Skipped: {skipped}, Failed: {failed} ---")
+        except Exception as e:
+            self.log(f"ERROR writing combined PDF: {e}")
+            messagebox.showerror("PDF write failed", f"Could not write PDF:\n{e}")
+        finally:
+            # Release the in-memory image copies.
+            for p in pages:
+                try:
+                    p.close()
+                except Exception:
+                    pass
+            self.convert_btn.configure(state="normal")
 
 
 def main():
