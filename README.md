@@ -4,7 +4,7 @@ A small, no-frills Windows utility to batch-convert HEIC/HEIF images to **JPG / 
 
 Built with Python + Tkinter. Pick one or many HEIC files from anywhere on your computer, choose an output folder, and click **Convert**. Files that aren't actually HEIC (for example, a JPEG someone renamed to `.heic`) are automatically detected and skipped with a warning in the log.
 
-<img width="718" height="634" alt="image" src="https://github.com/user-attachments/assets/7972668f-85c5-4bc6-b8d0-0502155e7400" />
+<img width="781" height="685" alt="image" src="https://github.com/user-attachments/assets/bf7c2136-2a45-46e1-b6f8-0f6a55a30f01" />
 
 
 ---
@@ -19,6 +19,7 @@ Built with Python + Tkinter. Pick one or many HEIC files from anywhere on your c
 - Automatic filename de-duplication (won't overwrite existing files)
 - Background conversion thread keeps the UI responsive
 - Progress bar and live log
+- Multi-core parallel conversion
 
 ---
 
@@ -71,9 +72,11 @@ The `--collect-all pillow_heif` flag is important — it ensures the native HEIF
 
 1. Click **Add Files...** and pick one or more HEIC images. You can repeat this to add files from different folders.
 2. Click **Browse...** next to the Output folder and choose where the converted images should go.
-3. Pick the output format: **JPEG** or **PNG**. For JPEG you can also tune the quality (1–100, default 92).
-4. Click **Convert**.
-5. Watch the log for results. Each file reports one of:
+3. Pick the output format: **JPEG**, **PNG**, **WebP** and **PDF**. For JPEG & WebP, you can also tune the quality (1–100, default 92).
+4. For PDF, there is option to combine all HEICs into a single multi-page PDF.
+5. For performance, 1 to cpu_count-1 is allowed. If converting 4 or less files, fallback to serial process.
+6. Click **Convert**.
+7. Watch the log for results. Each file reports one of:
    - `OK: photo.heic -> photo.jpg` — converted successfully
    - `WARNING: Not a valid HEIC/HEIF file, skipping: photo.heic` — the file isn't actually HEIC and was skipped
    - `ERROR converting photo.heic: ...` — something went wrong during conversion
